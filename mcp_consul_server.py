@@ -210,7 +210,8 @@ def consult_sergey(prompt: str, search_query: Optional[str] = None) -> str:
         
         # Process the response to extract the content and any citations
         answer = ""
-        for output_item in data:
+        # Process output array like in consult_darren function
+        for output_item in data.get("output", []):
             if output_item.get("type") == "message" and output_item.get("role") == "assistant":
                 for content_item in output_item.get("content", []):
                     if content_item.get("type") == "output_text":
