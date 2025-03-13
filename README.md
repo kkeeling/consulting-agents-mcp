@@ -1,11 +1,12 @@
 # ConsultingAgents MCP Server
 
-A Model Context Protocol (MCP) server that allows Claude Code to consult with additional AI agents for code and problem analysis. This server provides access to Darren (OpenAI) and Sonny (Anthropic) as expert coding consultants, enabling multi-model perspective on coding problems.
+A Model Context Protocol (MCP) server that allows Claude Code to consult with additional AI agents for code and problem analysis. This server provides access to Darren (OpenAI), Sonny (Anthropic), and Sergey (OpenAI with web search) as expert consultants, enabling multi-model perspective on coding problems.
 
 ## Features
 
 - **Darren**: OpenAI expert coding consultant powered by o3-mini model with high reasoning capabilities
 - **Sonny**: Anthropic expert coding consultant powered by Claude 3.7 Sonnet with enhanced thinking
+- **Sergey**: OpenAI web search specialist powered by GPT-4o for finding relevant documentation and examples
 - **MCP Integration**: Seamless integration with Claude Code via MCP protocol
 - **Multiple Transport Options**: Supports stdio (for direct Claude Code integration) and HTTP/SSE transport
 
@@ -62,12 +63,12 @@ A Model Context Protocol (MCP) server that allows Claude Code to consult with ad
 
 3. **Use the tools** in Claude Code:
    ```
-   Now you can use consult_with_darren and consult_with_sonny functions in Claude Code.
+   Now you can use consult_with_darren, consult_with_sonny, and consult_with_sergey functions in Claude Code.
    ```
 
 ## Available Tools
 
-The MCP server provides two consulting tools:
+The MCP server provides three consulting tools:
 
 ### `consult_with_darren`
 Uses OpenAI's o3-mini model with high reasoning to analyze code and provide recommendations.
@@ -82,6 +83,14 @@ Uses Claude 3.7 Sonnet with enhanced thinking to provide in-depth code analysis.
 Parameters:
 - `consultation_context`: Description of the problem (required)
 - `source_code`: Optional code to analyze
+
+### `consult_with_sergey`
+Uses GPT-4o with web search capabilities to find relevant documentation and examples.
+
+Parameters:
+- `consultation_context`: Description of what information or documentation you need (required)
+- `search_query`: Optional specific search query to use
+- `source_code`: Optional code for context
 
 ## Advanced Configuration
 
@@ -107,12 +116,21 @@ Returns server status and available agents.
 POST /consult
 ```
 
-Request body:
+Request body for Darren or Sonny:
 ```json
 {
   "agent": "Darren",
   "consultation_context": "I have a bug in my code where...",
   "source_code": "def example():\n    return 'hello'"
+}
+```
+
+Request body for Sergey:
+```json
+{
+  "agent": "Sergey",
+  "consultation_context": "How do I implement JWT authentication in Express?",
+  "search_query": "express.js JWT auth implementation"
 }
 ```
 
@@ -134,9 +152,20 @@ Request body:
 
 2. Test HTTP endpoints (when using HTTP transport):
    ```bash
+   # Test Darren
+   curl -X POST http://localhost:5000/consult \
+     -H "Content-Type: application/json" \
+     -d '{"agent":"Darren","consultation_context":"Test message"}'
+   
+   # Test Sonny
    curl -X POST http://localhost:5000/consult \
      -H "Content-Type: application/json" \
      -d '{"agent":"Sonny","consultation_context":"Test message"}'
+   
+   # Test Sergey
+   curl -X POST http://localhost:5000/consult \
+     -H "Content-Type: application/json" \
+     -d '{"agent":"Sergey","consultation_context":"Test message","search_query":"example"}'
    ```
 
 ### Project Structure

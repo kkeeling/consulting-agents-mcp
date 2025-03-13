@@ -36,6 +36,9 @@ SONNY_MAX_TOKENS = 32000
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"  # Consider using a more recent version if needed
 
+SERGEY_MODEL = "gpt-4o"  # Sergey uses gpt-4o with web search capabilities
+SERGEY_SEARCH_CONTEXT_SIZE = "medium"  # Default search context size
+
 def verify_api_keys() -> None:
     """Verify API keys are available"""
     if not os.getenv("OPENAI_API_KEY"):
@@ -157,6 +160,80 @@ def consult_sonny(prompt: str) -> str:
         logger.error(f"Response content: {response.text[:500]}...")
         raise Exception(f"Failed to parse Anthropic response: {str(e)}")
 
+def consult_sergey(prompt: str, search_query: Optional[str] = None) -> str:
+    """
+    Consult with Sergey using OpenAI's Responses API with GPT-4o and web search.
+    
+    Args:
+        prompt: The prompt to send to the model
+        search_query: Optional specific search query to use
+    """
+    verify_api_keys()
+    
+    # Prepare tools array with web search
+    tools = [{
+        "type": "web_search_preview",
+        "search_context_size": SERGEY_SEARCH_CONTEXT_SIZE
+    }]
+    
+    system_message = "You are Sergey, an expert at web search who helps find relevant API documentation and information for coding projects. When answering, include relevant citations to sources."
+    
+    # Format payload for the Responses API with web search
+    payload = {
+        "model": SERGEY_MODEL,
+        "input": prompt,
+        "instructions": system_message,
+        "tools": tools
+    }
+    
+    # Add specific search query to instructions if provided
+    if search_query:
+        payload["instructions"] += f"\n\nPlease specifically search for: {search_query}"
+    
+    headers = {
+        "Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}",
+        "Content-Type": "application/json"
+    }
+    
+    logger.info(f"Consulting Sergey with {len(prompt)} character prompt")
+    try:
+        response = requests.post(OPENAI_URL, headers=headers, json=payload, timeout=60)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        logger.error(f"OpenAI API request failed: {str(e)}")
+        if hasattr(e, 'response') and e.response:
+            logger.error(f"Response: {e.response.text}")
+        raise Exception(f"OpenAI API request failed: {str(e)}")
+    
+    try:
+        data = response.json()
+        
+        # Process the response to extract the content and any citations
+        answer = ""
+        for output_item in data:
+            if output_item.get("type") == "message" and output_item.get("role") == "assistant":
+                for content_item in output_item.get("content", []):
+                    if content_item.get("type") == "output_text":
+                        answer = content_item.get("text", "")
+                        # We could also extract annotations/citations here if needed
+                        
+                        logger.info(f"Sergey responded with {len(answer)} character response")
+                        return answer
+        
+        # Fallback if we couldn't find the response in the expected format
+        if "output_text" in data:
+            answer = data["output_text"]
+            logger.info(f"Sergey responded with {len(answer)} character response (from output_text)")
+            return answer
+            
+        logger.error(f"Unexpected OpenAI response format: {data.keys()}")
+        logger.error(f"Response content: {json.dumps(data)[:500]}...")
+        raise Exception("Could not parse response from OpenAI API")
+    except (KeyError, IndexError, ValueError) as e:
+        logger.error(f"Failed to parse OpenAI response: {str(e)}")
+        logger.error(f"Response content: {response.text[:500]}...")
+        raise Exception(f"Unexpected OpenAI API response format: {str(e)}")
+
 @mcp.tool()
 async def consult_with_darren(consultation_context: str, source_code: Optional[str] = None) -> str:
     """Consult with Darren (OpenAI o3-mini) about a coding problem.
@@ -205,6 +282,31 @@ async def consult_with_sonny(consultation_context: str, source_code: Optional[st
         logger.error(f"Error consulting with Sonny: {str(e)}")
         return f"Error consulting with Sonny: {str(e)}"
 
+@mcp.tool()
+async def consult_with_sergey(consultation_context: str, search_query: Optional[str] = None, source_code: Optional[str] = None) -> str:
+    """Consult with Sergey (GPT-4o with web search) to find relevant documentation and information.
+    
+    Args:
+        consultation_context: Description of what information or documentation you need
+        search_query: Optional specific search query to use
+        source_code: Optional source code for context
+        
+    Returns:
+        Sergey's findings with citations to relevant documentation
+    """
+    prompt = f"{consultation_context}\n\n"
+    if source_code:
+        prompt += f"Source Code:\n{source_code}\n\n"
+    prompt += "Please provide relevant information, documentation, and examples with citations to sources."
+    
+    logger.info("Processing consultation request for Sergey")
+    try:
+        result = consult_sergey(prompt, search_query)
+        return result
+    except Exception as e:
+        logger.error(f"Error consulting with Sergey: {str(e)}")
+        return f"Error consulting with Sergey: {str(e)}"
+
 if __name__ == "__main__":
     # Get transport from environment or default to stdio
     transport = os.environ.get("MCP_TRANSPORT", "stdio")
@@ -221,7 +323,7 @@ if __name__ == "__main__":
     
     # Check API keys at startup but don't stop server
     if not os.getenv("OPENAI_API_KEY"):
-        print("WARNING: OPENAI_API_KEY is not set. Darren agent won't work.")
+        print("WARNING: OPENAI_API_KEY is not set. Darren and Sergey agents won't work.")
     if not os.getenv("ANTHROPIC_API_KEY"):
         print("WARNING: ANTHROPIC_API_KEY is not set. Sonny agent won't work.")
     
