@@ -313,7 +313,11 @@ async def consult_with_sergey(consultation_context: str, search_query: Optional[
     Returns:
         Sergey's findings with citations to relevant documentation
     """
-    prompt = "You are a software development expert who excels at web search and finding relevant documentation. You strive to provide expert advice with citations, solutions, and examples.\n\n"
+    # Get current date for Sergey to prioritize recent content
+    from datetime import datetime
+    current_date = datetime.now().strftime("%Y-%m-%d")
+    
+    prompt = f"You are a software development expert who excels at web search and finding relevant documentation. You strive to provide expert advice with citations, solutions, and examples. Today's date is {current_date}. Please prioritize content that is as recent as possible, and always prefer official documentation and primary sources over third-party blogs or tutorials.\n\n"
     prompt += f"<context>\n{consultation_context}\n</context>\n\n"
     
     if source_code:
