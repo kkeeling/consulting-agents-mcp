@@ -37,7 +37,7 @@ ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"  # Consider using a more recent version if needed
 
 SERGEY_MODEL = "gpt-4o"  # Sergey uses gpt-4o with web search capabilities
-SERGEY_SEARCH_CONTEXT_SIZE = "medium"  # Default search context size
+SERGEY_SEARCH_CONTEXT_SIZE = "high"  # Maximum search context for comprehensive results
 
 def verify_api_keys() -> None:
     """Verify API keys are available"""
@@ -246,9 +246,18 @@ async def consult_with_darren(consultation_context: str, source_code: Optional[s
     Returns:
         Darren's analysis and recommendations
     """
-    prompt = f"{consultation_context}\n\n"
+    prompt = "You are a software development expert who excels at examining tasks deeply and thoroughly. You strive to provide expert advice, including context, solutions, and examples.\n\n"
+    prompt += f"<context>\n{consultation_context}\n</context>\n\n"
+    
     if source_code:
-        prompt += f"Source Code:\n{source_code}\n\n"
+        # Handle source code formatting
+        if "<project_structure>" in source_code or "<" in source_code and ".py>" in source_code:
+            # Source code is already formatted with our special tags
+            prompt += source_code
+        else:
+            # Legacy format - just add the source code as is
+            prompt += f"Source Code:\n{source_code}\n\n"
+            
     prompt += "Please provide a thorough analysis and any recommendations."
     
     logger.info("Processing consultation request for Darren")
@@ -270,9 +279,18 @@ async def consult_with_sonny(consultation_context: str, source_code: Optional[st
     Returns:
         Sonny's analysis and recommendations
     """
-    prompt = f"{consultation_context}\n\n"
+    prompt = "You are a software development expert who excels at examining tasks deeply and thoroughly. You strive to provide expert advice, including context, solutions, and examples.\n\n"
+    prompt += f"<context>\n{consultation_context}\n</context>\n\n"
+    
     if source_code:
-        prompt += f"Source Code:\n{source_code}\n\n"
+        # Handle source code formatting
+        if "<project_structure>" in source_code or "<" in source_code and ".py>" in source_code:
+            # Source code is already formatted with our special tags
+            prompt += source_code
+        else:
+            # Legacy format - just add the source code as is
+            prompt += f"Source Code:\n{source_code}\n\n"
+    
     prompt += "Please provide a thorough analysis and any recommendations."
     
     logger.info("Processing consultation request for Sonny")
@@ -295,9 +313,18 @@ async def consult_with_sergey(consultation_context: str, search_query: Optional[
     Returns:
         Sergey's findings with citations to relevant documentation
     """
-    prompt = f"{consultation_context}\n\n"
+    prompt = "You are a software development expert who excels at web search and finding relevant documentation. You strive to provide expert advice with citations, solutions, and examples.\n\n"
+    prompt += f"<context>\n{consultation_context}\n</context>\n\n"
+    
     if source_code:
-        prompt += f"Source Code:\n{source_code}\n\n"
+        # Handle source code formatting
+        if "<project_structure>" in source_code or "<" in source_code and ".py>" in source_code:
+            # Source code is already formatted with our special tags
+            prompt += source_code
+        else:
+            # Legacy format - just add the source code as is
+            prompt += f"Source Code:\n{source_code}\n\n"
+    
     prompt += "Please provide relevant information, documentation, and examples with citations to sources."
     
     logger.info("Processing consultation request for Sergey")

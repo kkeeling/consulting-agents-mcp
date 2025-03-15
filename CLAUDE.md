@@ -3,26 +3,29 @@
 ## Commands
 - Start server: `./start_mcp_server.sh`
 - Debug mode: `DEBUG=true ./start_mcp_server.sh`
+- HTTP server: `MCP_TRANSPORT=http ./start_mcp_server.sh`
+- Run tests: `python -m pytest tests/`
+- Run single test: `python -m pytest tests/test_name.py::test_function`
+- Lint: `python -m flake8 *.py`
+- Type check: `python -m mypy *.py`
+
+## API Testing (HTTP Mode)
 - Test Sonny: `curl -X POST http://localhost:5000/consult -H "Content-Type: application/json" -d '{"agent":"Sonny","consultation_context":"Test message"}'`
 - Test Darren: `curl -X POST http://localhost:5000/consult -H "Content-Type: application/json" -d '{"agent":"Darren","consultation_context":"Test message"}'`
 - Test Sergey: `curl -X POST http://localhost:5000/consult -H "Content-Type: application/json" -d '{"agent":"Sergey","consultation_context":"Test message","search_query":"example search"}'`
 
 ## Environment Setup
 - Python 3.8+ required
-- Setup: `python -m venv mcp_venv && source mcp_venv/bin/activate`
+- Setup: `python -m venv mcp_venv && source mcp_venv/bin/activate && pip install -r requirements.txt`
 - Configure `.env` file with `OPENAI_API_KEY` and `ANTHROPIC_API_KEY`
-
-## Agent Capabilities
-- Darren (OpenAI o3-mini): Expert code consultant with high reasoning
-- Sonny (Claude 3.7 Sonnet): Code consultant with extended thinking
-- Sergey (GPT-4o): Web search specialist for finding documentation and examples
 
 ## Code Style Guidelines
 - Follow PEP 8 standards for Python
-- Use type hints for all functions (from typing import Any, Dict, List, Optional)
-- Imports organized: standard library, third-party, local modules
-- Google-style docstrings for all functions and classes
-- Use structured logging for consistency
-- Error handling with specific exception messages
-- Variable naming: snake_case for variables, UPPER_CASE for constants
-- Maximum line length of 88 characters (Black formatter compatible)
+- Line length: 88 characters (Black formatter compatible)
+- Imports order: stdlib, third-party, local (separated by blank line)
+- Use type hints for all functions and parameters
+- Variable naming: snake_case for variables, UPPER_CASE for constants, PascalCase for classes
+- Google-style docstrings with Args/Returns sections
+- Structured logging with proper levels (info/error)
+- Explicit exception handling with specific error messages
+- Async functions for MCP tools, synchronous for internal functions
