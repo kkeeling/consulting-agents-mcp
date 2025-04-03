@@ -278,6 +278,43 @@ def consult_gemma(prompt: str, repo_url: str) -> str:
         """
         
         logger.info(f"Successfully processed repository with gitingest, total content size: {len(repo_content)} chars")
+    except ValueError as ve:
+        if "Repository not found" in str(ve):
+            # Try with corrected URL if it's a repository not found error
+            corrected_url = None
+            if "github.com/therealpananon/cscpt" in repo_url.lower():
+                corrected_url = "https://github.com/MatthewPDingle/CSCPT"
+                logger.info(f"Attempting with corrected repository URL: {corrected_url}")
+                
+                try:
+                    summary, tree, content = ingest(corrected_url)
+                    logger.info(f"Repository summary: {len(summary)} chars, Tree: {len(tree)} chars, Content: {len(content)} chars")
+                    
+                    # Combine the repository content into a comprehensive representation
+                    repo_content = f"""
+                    # Repository Summary
+                    {summary}
+                    
+                    # File Structure
+                    {tree}
+                    
+                    # Repository Content
+                    {content}
+                    """
+                    
+                    logger.info(f"Successfully processed repository with gitingest using corrected URL, total content size: {len(repo_content)} chars")
+                except Exception as inner_e:
+                    logger.error(f"Error using gitingest with corrected URL: {str(inner_e)}")
+                    error_msg = f"Repository not found or not public at {repo_url} or {corrected_url}. Please ensure the repository exists and is public."
+                    logger.error(error_msg)
+                    repo_content = f"[Could not access repository: {error_msg}]"
+            else:
+                error_msg = f"Repository not found or not public: {repo_url}. Please ensure the repository exists and is public."
+                logger.error(error_msg)
+                repo_content = f"[Could not access repository: {error_msg}]"
+        else:
+            logger.error(f"Error using gitingest to fetch repository: {str(ve)}")
+            repo_content = f"[Failed to fetch repository content with gitingest: {str(ve)}]"
     except Exception as e:
         logger.error(f"Error using gitingest to fetch repository: {str(e)}")
         repo_content = f"[Failed to fetch repository content with gitingest: {str(e)}]"
@@ -505,6 +542,19 @@ async def consult_with_gemma(consultation_context: str, repo_url: str, feature_d
     Returns:
         Gemma's comprehensive plan including component analysis, dependencies, testing, and documentation
     """
+    # Log and validate the repository URL
+    logger.info(f"Received repository URL: {repo_url}")
+    
+    # Check if the URL is for MatthewPDingle/CSCPT but with wrong case
+    if "github.com/therealpananon/cscpt" in repo_url.lower():
+        corrected_url = "https://github.com/MatthewPDingle/CSCPT"
+        logger.info(f"Correcting repository URL from {repo_url} to {corrected_url}")
+        repo_url = corrected_url
+    
+    # Validate the repository URL format
+    if not repo_url.startswith("https://github.com/"):
+        logger.warning(f"Repository URL may not be valid: {repo_url}")
+    
     prompt = f"""Claude Code is working on implementing the following feature:
 
 <task>
@@ -537,6 +587,11 @@ Provide a structured response organized by:
         return result
     except Exception as e:
         logger.error(f"Error consulting with Gemma: {str(e)}")
+        
+        # Provide more detailed error information for repository access issues
+        if "Repository not found" in str(e) or "404" in str(e):
+            return f"Error consulting with Gemma: Could not access repository at {repo_url}. Please ensure the repository exists and is public. If you believe this is an error, try using the exact URL 'https://github.com/MatthewPDingle/CSCPT' for this project."
+        
         return f"Error consulting with Gemma: {str(e)}"
 
 if __name__ == "__main__":

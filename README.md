@@ -104,10 +104,12 @@ Uses Google's Gemini 2.5 Pro model with 1M token context window to analyze entir
 
 Parameters:
 - `consultation_context`: Description of the task or feature to be implemented (required)
-- `repo_url`: GitHub repository URL to analyze (required)
+- `repo_url`: GitHub repository URL to analyze (required) - **IMPORTANT: Always specify the complete and correct GitHub URL (e.g., "https://github.com/username/repo")**
 - `feature_description`: Detailed description of the feature to implement (required)
 
 **Note:** This agent is particularly useful as Claude Code does not natively have the ability to analyze entire repositories in a single context.
+
+**Important URL Specification:** When using Gemma, always provide the exact GitHub repository URL. Claude Code may incorrectly infer the repository URL from your local directory path, which can lead to repository access errors. The URL should be in the format `https://github.com/username/repository` with the correct case sensitivity.
 
 ## Advanced Configuration
 
@@ -160,6 +162,8 @@ Request body for Gemma:
   "feature_description": "Implement basic username/password authentication for API access"
 }
 ```
+
+**Important:** Always provide the exact and complete GitHub repository URL in the `repo_url` field. Do not rely on Claude Code to infer this from your local directory path.
 
 ## Troubleshooting
 
