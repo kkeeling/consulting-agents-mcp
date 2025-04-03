@@ -7,7 +7,7 @@ A Model Context Protocol (MCP) server that allows Claude Code to consult with ad
 - **Darren**: OpenAI expert coding consultant powered by o3-mini model with high reasoning capabilities
 - **Sonny**: Anthropic expert coding consultant powered by Claude 3.7 Sonnet with enhanced thinking (Note: somewhat redundant now that Claude Code has native Extended Thinking mode)
 - **Sergey**: OpenAI web search specialist powered by GPT-4o for finding relevant documentation and examples (Note: somewhat redundant now that Claude Code has native web search capabilities)
-- **Gemma**: Google Gemini specialist powered by gemini-2.5-pro-exp-0325 with 1M token context for comprehensive repository analysis
+- **Gemma**: Google Gemini specialist powered by gemini-2.5-pro-exp-03-25 with 1M token context for comprehensive repository analysis
 - **MCP Integration**: Seamless integration with Claude Code via MCP protocol
 - **Multiple Transport Options**: Supports stdio (for direct Claude Code integration) and HTTP/SSE transport
 
@@ -167,6 +167,26 @@ Request body for Gemma:
 - **API Authentication Errors**: Check that your API keys are correctly set in the .env file
 - **Connection Issues**: Ensure the MCP server is running before starting Claude Code
 - **Debug Logs**: Check the terminal where the MCP server is running for detailed logs
+
+## Updating to a New Version
+
+When updating to a new version of consulting-agents-mcp, follow these steps:
+
+1. **Update the repository code** (pull latest changes)
+2. **Restart the MCP server**:
+   ```bash
+   ./start_mcp_server.sh
+   ```
+3. **Remove the existing MCP server from Claude Code**:
+   ```bash
+   claude mcp remove ConsultingAgents
+   ```
+4. **Re-add the MCP server to Claude Code with the absolute path**:
+   ```bash
+   claude mcp add ConsultingAgents /absolute/path/to/consulting-agents-mcp/start_mcp_server.sh
+   ```
+
+This process ensures Claude Code is using the updated version of the MCP server with any new models or functionality.
 
 ## Development
 
