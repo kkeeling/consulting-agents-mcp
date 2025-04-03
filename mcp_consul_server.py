@@ -255,69 +255,96 @@ def consult_gemma(prompt: str, repo_url: str) -> str:
     verify_api_keys()
     
     # Use gitingest to fetch repository content
-    try:
-        logger.info(f"Using gitingest to fetch repository content from {repo_url}")
-        from gitingest import ingest
-        
-        # Get repository digest using gitingest
-        summary, tree, content = ingest(repo_url)
-        
-        # Log repository statistics
-        logger.info(f"Repository summary: {len(summary)} chars, Tree: {len(tree)} chars, Content: {len(content)} chars")
-        
-        # Combine the repository content into a comprehensive representation
-        repo_content = f"""
-        # Repository Summary
-        {summary}
-        
-        # File Structure
-        {tree}
-        
-        # Repository Content
-        {content}
-        """
-        
-        logger.info(f"Successfully processed repository with gitingest, total content size: {len(repo_content)} chars")
-    except ValueError as ve:
-        if "Repository not found" in str(ve):
-            # Try with corrected URL if it's a repository not found error
-            corrected_url = None
-            if "github.com/therealpananon/cscpt" in repo_url.lower():
-                corrected_url = "https://github.com/MatthewPDingle/CSCPT"
-                logger.info(f"Attempting with corrected repository URL: {corrected_url}")
+    # First try the CLI approach which may be more reliable
+    import subprocess
+    import tempfile
+    import os.path
+    import time
+    
+    # Generate a unique temporary file path
+    timestamp = int(time.time())
+    temp_file = os.path.join(tempfile.gettempdir(), f"repo_digest_{timestamp}.txt")
+    logger.info(f"Will use temporary file for gitingest output: {temp_file}")
+    
+    # Try corrected URL first if it matches the known pattern
+    urls_to_try = [repo_url]
+    if "github.com/therealpananon/cscpt" in repo_url.lower():
+        corrected_url = "https://github.com/MatthewPDingle/CSCPT"
+        logger.info(f"Will also try corrected repository URL: {corrected_url}")
+        urls_to_try.insert(0, corrected_url)  # Try the corrected URL first
+    
+    repo_content = None
+    cli_success = False
+    
+    # Try CLI approach first
+    for url in urls_to_try:
+        try:
+            logger.info(f"Using gitingest CLI to fetch repository content from {url}")
+            subprocess.run(["gitingest", url, "--output", temp_file], 
+                          check=True, 
+                          capture_output=True,
+                          text=True,
+                          timeout=300)  # 5 minute timeout
+            
+            # Check if file exists and has content
+            if os.path.exists(temp_file):
+                with open(temp_file, 'r') as f:
+                    repo_content = f.read()
                 
-                try:
-                    summary, tree, content = ingest(corrected_url)
-                    logger.info(f"Repository summary: {len(summary)} chars, Tree: {len(tree)} chars, Content: {len(content)} chars")
-                    
-                    # Combine the repository content into a comprehensive representation
-                    repo_content = f"""
-                    # Repository Summary
-                    {summary}
-                    
-                    # File Structure
-                    {tree}
-                    
-                    # Repository Content
-                    {content}
-                    """
-                    
-                    logger.info(f"Successfully processed repository with gitingest using corrected URL, total content size: {len(repo_content)} chars")
-                except Exception as inner_e:
-                    logger.error(f"Error using gitingest with corrected URL: {str(inner_e)}")
-                    error_msg = f"Repository not found or not public at {repo_url} or {corrected_url}. Please ensure the repository exists and is public."
-                    logger.error(error_msg)
-                    repo_content = f"[Could not access repository: {error_msg}]"
+                if repo_content and len(repo_content) > 100:  # Ensure we got meaningful content
+                    logger.info(f"Successfully processed repository with gitingest CLI, content size: {len(repo_content)} chars")
+                    cli_success = True
+                    break
+                else:
+                    logger.warning(f"gitingest CLI output file exists but contains insufficient content ({len(repo_content) if repo_content else 0} chars)")
             else:
-                error_msg = f"Repository not found or not public: {repo_url}. Please ensure the repository exists and is public."
-                logger.error(error_msg)
-                repo_content = f"[Could not access repository: {error_msg}]"
-        else:
-            logger.error(f"Error using gitingest to fetch repository: {str(ve)}")
-            repo_content = f"[Failed to fetch repository content with gitingest: {str(ve)}]"
-    except Exception as e:
-        logger.error(f"Error using gitingest to fetch repository: {str(e)}")
-        repo_content = f"[Failed to fetch repository content with gitingest: {str(e)}]"
+                logger.warning(f"gitingest CLI did not create expected output file at {temp_file}")
+        
+        except subprocess.CalledProcessError as e:
+            logger.error(f"gitingest CLI failed with return code {e.returncode}: {e.stderr}")
+        except subprocess.TimeoutExpired:
+            logger.error(f"gitingest CLI timed out after 300 seconds")
+        except Exception as e:
+            logger.error(f"Error using gitingest CLI: {str(e)}")
+    
+    # If CLI approach failed, try the Python API approach
+    if not cli_success:
+        for url in urls_to_try:
+            try:
+                logger.info(f"Using gitingest Python API to fetch repository content from {url}")
+                from gitingest import ingest
+                
+                # Get repository digest using gitingest
+                summary, tree, content = ingest(url)
+                
+                # Log repository statistics
+                logger.info(f"Repository summary: {len(summary)} chars, Tree: {len(tree)} chars, Content: {len(content)} chars")
+                
+                # Combine the repository content into a comprehensive representation
+                repo_content = f"""
+                # Repository Summary
+                {summary}
+                
+                # File Structure
+                {tree}
+                
+                # Repository Content
+                {content}
+                """
+                
+                logger.info(f"Successfully processed repository with gitingest Python API, total content size: {len(repo_content)} chars")
+                break  # We succeeded, no need to try other URLs
+                
+            except Exception as e:
+                logger.error(f"Error using gitingest Python API with {url}: {str(e)}")
+                last_error = str(e)
+    
+    # If we still don't have content, set an error message
+    if not repo_content or len(repo_content) < 100:  # Less than 100 chars is probably an error
+        error_urls = ", ".join(urls_to_try)
+        error_msg = f"Failed to fetch repository content with gitingest for URLs: {error_urls}"
+        logger.error(error_msg)
+        repo_content = f"[Repository analysis failed: {error_msg}. Please ensure the repository exists, is public, and the URL is correct.]"
     
     # Construct the URL for the API request
     api_url = GOOGLE_AI_URL.format(model=GEMMA_MODEL)
