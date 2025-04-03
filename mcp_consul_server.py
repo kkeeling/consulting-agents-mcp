@@ -246,6 +246,7 @@ def consult_sergey(prompt: str, search_query: Optional[str] = None) -> str:
 def consult_gemma(prompt: str, repo_url: str) -> str:
     """
     Consult with Gemma using Google's Gemini API with the repository analysis capabilities.
+    Uses gitingest to fetch and process the repository content first.
     
     Args:
         prompt: The prompt to send to the model
@@ -253,17 +254,39 @@ def consult_gemma(prompt: str, repo_url: str) -> str:
     """
     verify_api_keys()
     
+    # Use gitingest to fetch repository content
+    try:
+        logger.info(f"Using gitingest to fetch repository content from {repo_url}")
+        from gitingest import ingest
+        
+        # Get repository digest using gitingest
+        summary, tree, content = ingest(repo_url)
+        
+        # Log repository statistics
+        logger.info(f"Repository summary: {len(summary)} chars, Tree: {len(tree)} chars, Content: {len(content)} chars")
+        
+        # Combine the repository content into a comprehensive representation
+        repo_content = f"""
+        # Repository Summary
+        {summary}
+        
+        # File Structure
+        {tree}
+        
+        # Repository Content
+        {content}
+        """
+        
+        logger.info(f"Successfully processed repository with gitingest, total content size: {len(repo_content)} chars")
+    except Exception as e:
+        logger.error(f"Error using gitingest to fetch repository: {str(e)}")
+        repo_content = f"[Failed to fetch repository content with gitingest: {str(e)}]"
+    
     # Construct the URL for the API request
     api_url = GOOGLE_AI_URL.format(model=GEMMA_MODEL)
     
     # Add API key as a query parameter
     api_url = f"{api_url}?key={os.getenv('GOOGLE_API_KEY')}"
-    
-    # Instructions for using GitIngest
-    git_ingest_instructions = f"""
-    Use the https://github.com/cyclotruc/gitingest tool to create a comprehensive text version of the 
-    repository at {repo_url}. This will allow you to analyze the entire codebase within your 1M token context window.
-    """
     
     # Thinking structure based on Google's API documentation
     thinking_instructions = """
@@ -280,9 +303,11 @@ def consult_gemma(prompt: str, repo_url: str) -> str:
     """
     
     # Format the system message
-    system_message = f"""You are Gemma, an expert at codebase analysis who specializes in reviewing entire code repositories to provide comprehensive development plans. 
+    system_message = f"""You are Gemma, an expert at codebase analysis who specializes in reviewing entire code repositories to provide comprehensive development plans.
     
-    {git_ingest_instructions}
+    Below is the full repository content extracted using gitingest:
+
+    {repo_content}
     
     {thinking_instructions}
     
