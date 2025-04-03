@@ -41,7 +41,7 @@ ANTHROPIC_VERSION = "2023-06-01"  # Consider using a more recent version if need
 SERGEY_MODEL = "gpt-4o"  # Sergey uses gpt-4o with web search capabilities
 SERGEY_SEARCH_CONTEXT_SIZE = "high"  # Maximum search context for comprehensive results
 
-GEMMA_MODEL = "gemini-2.5-pro-exp-0325"  # Gemma uses Gemini model with extended context
+GEMMA_MODEL = "gemini-2.5-pro"  # Gemma uses Gemini model with extended context
 GEMMA_MAX_TOKENS = 1000000  # Massive 1M token context window for repository analysis
 GOOGLE_AI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"  # Gemini API endpoint
 
