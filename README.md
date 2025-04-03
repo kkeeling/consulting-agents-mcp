@@ -1,12 +1,13 @@
 # ConsultingAgents MCP Server
 
-A Model Context Protocol (MCP) server that allows Claude Code to consult with additional AI agents for code and problem analysis. This server provides access to Darren (OpenAI), Sonny (Anthropic), and Sergey (OpenAI with web search) as expert consultants, enabling multi-model perspective on coding problems.
+A Model Context Protocol (MCP) server that allows Claude Code to consult with additional AI agents for code and problem analysis. This server provides access to Darren (OpenAI), Sonny (Anthropic), Sergey (OpenAI with web search), and Gemma (Google Gemini with repository analysis) as expert consultants, enabling multi-model perspective on coding problems.
 
 ## Features
 
 - **Darren**: OpenAI expert coding consultant powered by o3-mini model with high reasoning capabilities
-- **Sonny**: Anthropic expert coding consultant powered by Claude 3.7 Sonnet with enhanced thinking
-- **Sergey**: OpenAI web search specialist powered by GPT-4o for finding relevant documentation and examples
+- **Sonny**: Anthropic expert coding consultant powered by Claude 3.7 Sonnet with enhanced thinking (Note: somewhat redundant now that Claude Code has native Extended Thinking mode)
+- **Sergey**: OpenAI web search specialist powered by GPT-4o for finding relevant documentation and examples (Note: somewhat redundant now that Claude Code has native web search capabilities)
+- **Gemma**: Google Gemini specialist powered by gemini-2.5-pro-exp-0325 with 1M token context for comprehensive repository analysis
 - **MCP Integration**: Seamless integration with Claude Code via MCP protocol
 - **Multiple Transport Options**: Supports stdio (for direct Claude Code integration) and HTTP/SSE transport
 
@@ -15,6 +16,7 @@ A Model Context Protocol (MCP) server that allows Claude Code to consult with ad
 - Python 3.8+
 - OpenAI API key
 - Anthropic API key
+- Google API key
 - Claude Code CLI (for integration)
 
 ## Quick Start
@@ -41,6 +43,7 @@ A Model Context Protocol (MCP) server that allows Claude Code to consult with ad
    ```
    OPENAI_API_KEY=your_openai_api_key_here
    ANTHROPIC_API_KEY=your_anthropic_api_key_here
+   GOOGLE_API_KEY=your_google_api_key_here
    ```
 
 5. **Start the server**:
@@ -63,12 +66,12 @@ A Model Context Protocol (MCP) server that allows Claude Code to consult with ad
 
 3. **Use the tools** in Claude Code:
    ```
-   Now you can use consult_with_darren, consult_with_sonny, and consult_with_sergey functions in Claude Code.
+   Now you can use consult_with_darren, consult_with_sonny, consult_with_sergey, and consult_with_gemma functions in Claude Code.
    ```
 
 ## Available Tools
 
-The MCP server provides three consulting tools:
+The MCP server provides four consulting tools:
 
 ### `consult_with_darren`
 Uses OpenAI's o3-mini model with high reasoning to analyze code and provide recommendations.
@@ -84,6 +87,8 @@ Parameters:
 - `consultation_context`: Description of the problem (required)
 - `source_code`: Optional code to analyze
 
+**Note:** This agent is somewhat redundant now that Claude Code has native Extended Thinking mode, but may still be useful for getting a second opinion or different approach from another Claude model.
+
 ### `consult_with_sergey`
 Uses GPT-4o with web search capabilities to find relevant documentation and examples.
 
@@ -91,6 +96,18 @@ Parameters:
 - `consultation_context`: Description of what information or documentation you need (required)
 - `search_query`: Optional specific search query to use
 - `source_code`: Optional code for context
+
+**Note:** This agent is somewhat redundant now that Claude Code has native web search capabilities, but may still be useful for comparing search results between GPT-4o and Claude, or getting a different perspective.
+
+### `consult_with_gemma`
+Uses Google's Gemini 2.5 Pro model with 1M token context window to analyze entire repositories and provide comprehensive development plans.
+
+Parameters:
+- `consultation_context`: Description of the task or feature to be implemented (required)
+- `repo_url`: GitHub repository URL to analyze (required)
+- `feature_description`: Detailed description of the feature to implement (required)
+
+**Note:** This agent is particularly useful as Claude Code does not natively have the ability to analyze entire repositories in a single context.
 
 ## Advanced Configuration
 
@@ -134,6 +151,16 @@ Request body for Sergey:
 }
 ```
 
+Request body for Gemma:
+```json
+{
+  "agent": "Gemma",
+  "consultation_context": "Adding user authentication to the API",
+  "repo_url": "https://github.com/username/repo",
+  "feature_description": "Implement basic username/password authentication for API access"
+}
+```
+
 ## Troubleshooting
 
 - **MCP Server Not Found**: Verify the absolute path in your claude mcp add command
@@ -166,6 +193,11 @@ Request body for Sergey:
    curl -X POST http://localhost:5000/consult \
      -H "Content-Type: application/json" \
      -d '{"agent":"Sergey","consultation_context":"Test message","search_query":"example"}'
+   
+   # Test Gemma
+   curl -X POST http://localhost:5000/consult \
+     -H "Content-Type: application/json" \
+     -d '{"agent":"Gemma","consultation_context":"Add user authentication","repo_url":"https://github.com/username/repo","feature_description":"Implement basic username/password authentication for API access"}'
    ```
 
 ### Project Structure
