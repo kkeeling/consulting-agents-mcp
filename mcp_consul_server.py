@@ -22,6 +22,8 @@ if not os.getenv("OPENAI_API_KEY"):
     logger.error("OPENAI_API_KEY is not set in environment or .env file")
 if not os.getenv("ANTHROPIC_API_KEY"):
     logger.error("ANTHROPIC_API_KEY is not set in environment or .env file")
+if not os.getenv("GOOGLE_API_KEY"):
+    logger.error("GOOGLE_API_KEY is not set in environment or .env file")
 
 # Initialize MCP server
 mcp = FastMCP("ConsultingAgent")
@@ -39,12 +41,18 @@ ANTHROPIC_VERSION = "2023-06-01"  # Consider using a more recent version if need
 SERGEY_MODEL = "gpt-4o"  # Sergey uses gpt-4o with web search capabilities
 SERGEY_SEARCH_CONTEXT_SIZE = "high"  # Maximum search context for comprehensive results
 
+GEMMA_MODEL = "gemini-2.5-pro-exp-0325"  # Gemma uses Gemini model with extended context
+GEMMA_MAX_TOKENS = 1000000  # Massive 1M token context window for repository analysis
+GOOGLE_AI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"  # Gemini API endpoint
+
 def verify_api_keys() -> None:
     """Verify API keys are available"""
     if not os.getenv("OPENAI_API_KEY"):
         raise EnvironmentError("OPENAI_API_KEY is not set")
     if not os.getenv("ANTHROPIC_API_KEY"):
         raise EnvironmentError("ANTHROPIC_API_KEY is not set")
+    if not os.getenv("GOOGLE_API_KEY"):
+        raise EnvironmentError("GOOGLE_API_KEY is not set")
 
 def consult_darren(prompt: str) -> str:
     """
@@ -235,6 +243,127 @@ def consult_sergey(prompt: str, search_query: Optional[str] = None) -> str:
         logger.error(f"Response content: {response.text[:500]}...")
         raise Exception(f"Unexpected OpenAI API response format: {str(e)}")
 
+def consult_gemma(prompt: str, repo_url: str) -> str:
+    """
+    Consult with Gemma using Google's Gemini API with the repository analysis capabilities.
+    
+    Args:
+        prompt: The prompt to send to the model
+        repo_url: The GitHub repository URL to analyze
+    """
+    verify_api_keys()
+    
+    # Construct the URL for the API request
+    api_url = GOOGLE_AI_URL.format(model=GEMMA_MODEL)
+    
+    # Add API key as a query parameter
+    api_url = f"{api_url}?key={os.getenv('GOOGLE_API_KEY')}"
+    
+    # Instructions for using GitIngest
+    git_ingest_instructions = f"""
+    Use the https://github.com/cyclotruc/gitingest tool to create a comprehensive text version of the 
+    repository at {repo_url}. This will allow you to analyze the entire codebase within your 1M token context window.
+    """
+    
+    # Thinking structure based on Google's API documentation
+    thinking_instructions = """
+    When analyzing this request, use the following structure:
+    1. Parse the feature/task requirements carefully
+    2. Understand the repository structure
+    3. Identify relevant components that will need modification
+    4. Determine dependencies between components
+    5. Formulate a comprehensive plan that includes:
+       - Files that need to be modified
+       - New files that need to be created
+       - Tests that need to be updated or added
+       - Documentation changes required
+    """
+    
+    # Format the system message
+    system_message = f"""You are Gemma, an expert at codebase analysis who specializes in reviewing entire code repositories to provide comprehensive development plans. 
+    
+    {git_ingest_instructions}
+    
+    {thinking_instructions}
+    
+    When responding, provide a structured plan that includes:
+    1. Component analysis - which parts of the code need to be modified
+    2. Dependency list - what other components will be affected
+    3. Testing plan - how the changes should be tested
+    4. Documentation plan - what documentation needs to be updated
+    
+    Always cite specific files and code structures in your analysis."""
+    
+    # Format the payload according to Gemini API specs
+    payload = {
+        "contents": [
+            {
+                "role": "user",
+                "parts": [
+                    {"text": system_message + "\n\n" + prompt}
+                ]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.2,
+            "topP": 0.8,
+            "topK": 40,
+            "maxOutputTokens": 8192
+        },
+        "safetySettings": [
+            {
+                "category": "HARM_CATEGORY_HARASSMENT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_HATE_SPEECH",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            }
+        ]
+    }
+    
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    logger.info(f"Consulting Gemma with {len(prompt)} character prompt for repository: {repo_url}")
+    try:
+        response = requests.post(api_url, headers=headers, json=payload, timeout=120)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Google AI API request failed: {str(e)}")
+        if hasattr(e, 'response') and e.response:
+            logger.error(f"Response: {e.response.text}")
+        raise Exception(f"Google AI API request failed: {str(e)}")
+    
+    try:
+        data = response.json()
+        
+        # Parse the Gemini API response format
+        if "candidates" in data and len(data["candidates"]) > 0:
+            candidate = data["candidates"][0]
+            if "content" in candidate and "parts" in candidate["content"]:
+                for part in candidate["content"]["parts"]:
+                    if "text" in part:
+                        answer = part["text"]
+                        logger.info(f"Gemma responded with {len(answer)} character response")
+                        return answer
+        
+        logger.error(f"Unexpected Google AI response format: {json.dumps(data)[:500]}...")
+        raise Exception("Could not parse response from Google AI API")
+    except (KeyError, IndexError, ValueError) as e:
+        logger.error(f"Failed to parse Google AI response: {str(e)}")
+        logger.error(f"Response content: {response.text[:500]}...")
+        raise Exception(f"Unexpected Google AI API response format: {str(e)}")
+
 @mcp.tool()
 async def consult_with_darren(consultation_context: str, source_code: Optional[str] = None) -> str:
     """Consult with Darren (OpenAI o3-mini) about a coding problem.
@@ -339,6 +468,52 @@ async def consult_with_sergey(consultation_context: str, search_query: Optional[
         logger.error(f"Error consulting with Sergey: {str(e)}")
         return f"Error consulting with Sergey: {str(e)}"
 
+@mcp.tool()
+async def consult_with_gemma(consultation_context: str, repo_url: str, feature_description: str) -> str:
+    """Consult with Gemma (Gemini 2.5 Pro) to analyze entire repositories and provide comprehensive development plans.
+    
+    Args:
+        consultation_context: Description of the task or feature to be implemented
+        repo_url: The GitHub repository URL to analyze
+        feature_description: Detailed description of the feature to be implemented
+        
+    Returns:
+        Gemma's comprehensive plan including component analysis, dependencies, testing, and documentation
+    """
+    prompt = f"""Claude Code is working on implementing the following feature:
+
+<task>
+{consultation_context}
+</task>
+
+<feature_details>
+{feature_description}
+</feature_details>
+
+Analyze the entire repository to create a comprehensive implementation plan. Focus on:
+
+1. Identifying all components that need modification
+2. Finding any redundant code that could be consolidated
+3. Mapping dependencies between components
+4. Creating a testing strategy
+5. Planning documentation updates
+
+Provide a structured response organized by:
+- Component Analysis
+- Implementation Steps
+- Dependencies
+- Testing Plan
+- Documentation Requirements
+"""
+    
+    logger.info(f"Processing repository analysis request for Gemma: {repo_url}")
+    try:
+        result = consult_gemma(prompt, repo_url)
+        return result
+    except Exception as e:
+        logger.error(f"Error consulting with Gemma: {str(e)}")
+        return f"Error consulting with Gemma: {str(e)}"
+
 if __name__ == "__main__":
     # Get transport from environment or default to stdio
     transport = os.environ.get("MCP_TRANSPORT", "stdio")
@@ -358,6 +533,8 @@ if __name__ == "__main__":
         print("WARNING: OPENAI_API_KEY is not set. Darren and Sergey agents won't work.")
     if not os.getenv("ANTHROPIC_API_KEY"):
         print("WARNING: ANTHROPIC_API_KEY is not set. Sonny agent won't work.")
+    if not os.getenv("GOOGLE_API_KEY"):
+        print("WARNING: GOOGLE_API_KEY is not set. Gemma agent won't work.")
     
     # Run the MCP server with appropriate transport
     mcp.run(transport=transport)

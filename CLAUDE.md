@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # MCP Consulting Agents Development Guide
 
 ## Commands
@@ -13,11 +17,12 @@
 - Test Sonny: `curl -X POST http://localhost:5000/consult -H "Content-Type: application/json" -d '{"agent":"Sonny","consultation_context":"Test message"}'`
 - Test Darren: `curl -X POST http://localhost:5000/consult -H "Content-Type: application/json" -d '{"agent":"Darren","consultation_context":"Test message"}'`
 - Test Sergey: `curl -X POST http://localhost:5000/consult -H "Content-Type: application/json" -d '{"agent":"Sergey","consultation_context":"Test message","search_query":"example search"}'`
+- Test Gemma: `curl -X POST http://localhost:5000/consult -H "Content-Type: application/json" -d '{"agent":"Gemma","consultation_context":"Test message","repo_url":"https://github.com/username/repo","feature_description":"Detailed feature description"}'`
 
 ## Environment Setup
 - Python 3.8+ required
 - Setup: `python -m venv mcp_venv && source mcp_venv/bin/activate && pip install -r requirements.txt`
-- Configure `.env` file with `OPENAI_API_KEY` and `ANTHROPIC_API_KEY`
+- Configure `.env` file with `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GOOGLE_API_KEY`
 
 ## Code Style Guidelines
 - Follow PEP 8 standards for Python
