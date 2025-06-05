@@ -17,6 +17,12 @@ logger = logging.getLogger(__name__)
 # Load API keys from .env file
 load_dotenv()
 
+# Strip whitespace from API keys to handle CRLF line endings
+for key in ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]:
+    value = os.getenv(key)
+    if value:
+        os.environ[key] = value.strip()
+
 # Check for required API keys
 if not os.getenv("OPENAI_API_KEY"):
     logger.error("OPENAI_API_KEY is not set in environment or .env file")
